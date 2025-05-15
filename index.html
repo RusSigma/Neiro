@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroAI - Обучаемая нейросеть</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .chat-container { height: calc(100vh - 180px); }
+        .message { max-width: 80%; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); }
+        .typing-dot { width: 8px; height: 8px; background-color: #4b5563; }
+        .gradient-bg { background: linear-gradient(135deg, #6e8efb 0%, #a777e3 100%); }
+        .file-preview { max-height: 200px; max-width: 100%; border-radius: 8px; object-fit: contain; }
+        .glow { box-shadow: 0 0 15px rgba(167, 119, 227, 0.5); }
+        .neon-text { text-shadow: 0 0 8px rgba(167, 119, 227, 0.7); }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <div id="instructionModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 rounded-full gradient-bg flex items-center justify-center mr-3">
+                        <i class="fas fa-brain text-white text-xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800">Добро пожаловать в NeuroAI</h3>
+                </div>
+                <button id="closeModal" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="space-y-5 text-gray-600">
+                <p class="text-lg">Это <span class="font-semibold text-purple-600">обучаемая с нуля нейросеть</span>, которая изначально ничего не знает и будет учиться только у вас!</p>
+                <div class="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                    <h4 class="font-semibold text-blue-800 mb-2 flex items-center"><i class="fas fa-lightbulb text-yellow-500 mr-2"></i> Как обучать нейросеть:</h4>
+                    <ul class="list-disc pl-5 space-y-2 text-blue-900">
+                        <li>Отправляйте текстовые сообщения с объяснениями</li>
+                        <li>Загружайте фото/видео с правилами (например, математика)</li>
+                        <li>Задавайте вопросы - нейросеть ответит на основе изученного</li>
+                        <li>Исправляйте ошибки - она запомнит правильные ответы</li>
+                    </ul>
+                </div>
+                <p class="text-sm text-gray-500"><i class="fas fa-info-circle mr-2"></i>Нейросеть начинает с чистого листа и учится только от вас!</p>
+            </div>
+            <button id="startChat" class="w-full mt-6 bg-gradient-to-r from-purple-500 to-blue-500 text-white py-3 rounded-lg font-bold hover:opacity-90 transition">Начать обучение</button>
+        </div>
+    </div>
+
+    <div class="container mx-auto max-w-4xl px-4 py-6 hidden" id="chatApp">
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+            <div class="gradient-bg p-4 flex items-center">
+                <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center mr-3">
+                    <i class="fas fa-brain text-purple-600"></i>
+                </div>
+                <div>
+                    <h2 class="text-white font-bold text-xl">NeuroAI</h2>
+                    <p class="text-white text-opacity-80 text-sm">Обучаемая нейросеть</p>
+                </div>
+                <div class="ml-auto flex space-x-2">
+                    <button id="clearMemory" class="bg-white bg-opacity-20 text-white p-2 rounded-lg hover:bg-opacity-30" title="Очистить память">
+                        <i class="fas fa-eraser"></i>
+                    </button>
+                    <button id="showInstructions" class="bg-white bg-opacity-20 text-white p-2 rounded-lg hover:bg-opacity-30" title="Инструкция">
+                        <i class="fas fa-question"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="chatContainer" class="chat-container overflow-y-auto p-4 bg-gray-50">
+                <div class="flex mb-4">
+                    <div class="bg-white rounded-2xl rounded-tl-none px-4 py-3 message">
+                        <p>Привет! Я NeuroAI - нейросеть, которая начинает обучение с нуля. Пока я ничего не знаю, но готова учиться у вас! Отправляйте мне сообщения, файлы с правилами, и я буду их запоминать.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 border-t border-gray-200 bg-white">
+                <div id="filePreview" class="mb-3 hidden"></div>
+                <div class="flex space-x-2">
+                    <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 rounded-lg p-3 flex items-center justify-center">
+                        <input type="file" id="fileInput" class="hidden" accept="image/*,video/*,application/pdf">
+                        <i class="fas fa-paperclip text-gray-600"></i>
+                    </label>
+                    <input type="text" id="messageInput" placeholder="Напишите сообщение или загрузите файл..." class="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-200">
+                    <button id="sendButton" class="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 rounded-lg font-bold hover:opacity-90 transition">Отправить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Модель нейросети
+        const neuroAI = {
+            memory: [],
+            learn: function(data) {
+                this.memory.push(data);
+                localStorage.setItem('neuroMemory', JSON.stringify(this.memory));
+            },
+            clear: function() {
+                this.memory = [];
+                localStorage.removeItem('neuroMemory');
+            },
+            process: function(input) {
+                if (!input) return "Я не получила сообщение. Пожалуйста, напишите что-нибудь.";
+                
+                // Поиск в памяти
+                for (let item of this.memory) {
+                    if (item.type === 'text' && input.toLowerCase().includes(item.keyword)) {
+                        return item.response;
+                    }
+                }
+                
+                return "Я пока не знаю ответа на этот вопрос. Пожалуйста, объясните мне или загрузите файл с информацией.";
+            }
+        };
+
+        // Загрузка сохраненной памяти
+        if (localStorage.getItem('neuroMemory')) {
+            neuroAI.memory = JSON.parse(localStorage.getItem('neuroMemory'));
+        }
+
+        // DOM элементы
+        const instructionModal = document.getElementById('instructionModal');
+        const closeModal = document.getElementById('closeModal');
+        const startChat = document.getElementById('startChat');
+        const chatApp = document.getElementById('chatApp');
+        const chatContainer = document.getElementById('chatContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const fileInput = document.getElementById('fileInput');
+        const filePreview = document.getElementById('filePreview');
+        const clearMemory = document.getElementById('clearMemory');
+        const showInstructions = document.getElementById('showInstructions');
+
+        // Показать инструкцию при загрузке
+        window.onload = () => instructionModal.classList.remove('hidden');
+
+        // Закрыть модальное окно
+        closeModal.onclick = () => instructionModal.classList.add('hidden');
+        showInstructions.onclick = () => instructionModal.classList.remove('hidden');
+
+        // Начать чат
+        startChat.onclick = () => {
+            instructionModal.classList.add('hidden');
+            chatApp.classList.remove('hidden');
+        };
+
+        // Отправка сообщения
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            const file = fileInput.files[0];
+            
+            if (!message && !file) return;
+            
+            // Добавление сообщения пользователя
+            if (message) {
+                addMessage(message, 'user');
+                messageInput.value = '';
+            }
+            
+            // Обработка файла
+            if (file) {
+                handleFileUpload(file);
+                fileInput.value = '';
+            }
+            
+            // Имитация набора текста нейросетью
+            showTypingIndicator();
+            
+            // Задержка для имитации обработки
+            setTimeout(() => {
+                removeTypingIndicator();
+                
+                const response = neuroAI.process(message);
+                addMessage(response, 'ai');
+                
+                // Прокрутка вниз
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }, 1500);
+        }
+
+        // Добавление сообщения в чат
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex mb-4 ${sender === 'user' ? 'justify-end' : ''}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = `bg-${sender === 'user' ? 'blue-500 text-white' : 'white'} rounded-2xl ${sender === 'user' ? 'rounded-br-none' : 'rounded-tl-none'} px-4 py-3 message`;
+            contentDiv.innerHTML = `<p>${text}</p>`;
+            
+            messageDiv.appendChild(contentDiv);
+            chatContainer.appendChild(messageDiv);
+            
+            // Прокрутка вниз
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Индикатор набора сообщения
+        function showTypingIndicator() {
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'flex mb-4';
+            typingDiv.id = 'typingIndicator';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'bg-white rounded-2xl rounded-tl-none px-4 py-3 message';
+            
+            const dotsDiv = document.createElement('div');
+            dotsDiv.className = 'typing-indicator';
+            dotsDiv.innerHTML = `
+                <div class="typing-dot animate-pulse"></div>
+                <div class="typing-dot animate-pulse" style="animation-delay: 0.2s"></div>
+                <div class="typing-dot animate-pulse" style="animation-delay: 0.4s"></div>
+            `;
+            
+            contentDiv.appendChild(dotsDiv);
+            typingDiv.appendChild(contentDiv);
+            chatContainer.appendChild(typingDiv);
+            
+            // Прокрутка вниз
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) indicator.remove();
+        }
+
+        // Обработка загрузки файла
+        function handleFileUpload(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                // Добавление превью файла
+                let previewHTML = '';
+                if (file.type.startsWith('image/')) {
+                    previewHTML = `<img src="${e.target.result}" class="file-preview mb-2" alt="Preview">`;
+                } else if (file.type.startsWith('video/')) {
+                    previewHTML = `<video controls class="file-preview mb-2"><source src="${e.target.result}" type="${file.type}"></video>`;
+                } else {
+                    previewHTML = `<div class="bg-gray-100 p-4 rounded-lg mb-2"><i class="fas fa-file text-3xl text-gray-400 mr-3"></i><span>${file.name}</span></div>`;
+                }
+                
+                // Добавление сообщения о файле
+                addMessage(`Загружен файл: ${file.name}`, 'user');
+                
+                // Обучение нейросети на основе файла
+                neuroAI.learn({
+                    type: 'file',
+                    fileType: file.type,
+                    content: e.target.result,
+                    timestamp: new Date().toISOString()
+                });
+            };
+            
+            if (file.type.startsWith('image/') || file.type.startsWith('video/') || file.type === 'application/pdf') {
+                reader.readAsDataURL(file);
+            } else {
+                reader.readAsText(file);
+            }
+        }
+
+        // Очистка памяти
+        clearMemory.onclick = () => {
+            if (confirm("Вы уверены, что хотите очистить всю память нейросети? Это действие нельзя отменить.")) {
+                neuroAI.clear();
+                addMessage("Моя память была очищена. Теперь я снова ничего не знаю и готова учиться заново!", 'ai');
+            }
+        };
+
+        // Обработчики событий
+        sendButton.onclick = sendMessage;
+        messageInput.onkeypress = (e) => e.key === 'Enter' && sendMessage();
+        fileInput.onchange = () => {
+            if (fileInput.files.length > 0) {
+                filePreview.classList.remove('hidden');
+                handleFileUpload(fileInput.files[0]);
+            }
+        };
+    </script>
+</body>
+</html>
