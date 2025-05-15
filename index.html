@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroAI - Персональная обучаемая нейросеть</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Montserrat:wght@500;600;700&display=swap');
+        
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #f59e0b;
+            --dark: #1e293b;
+            --light: #f8fafc;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f1f5f9;
+            height: 100vh;
+            overflow: hidden;
+            color: var(--dark);
+        }
+        
+        .title-font {
+            font-family: 'Montserrat', sans-serif;
+        }
+        
+        .chat-container {
+            height: calc(100vh - 180px);
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+        
+        .message-animation {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .typing-indicator {
+            display: inline-block;
+        }
+        
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            background-color: #4b5563;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 2px;
+            animation: bounce 1.5s infinite ease-in-out;
+        }
+        
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+        
+        .settings-panel {
+            transition: all 0.3s ease;
+            transform: translateX(100%);
+        }
+        
+        .settings-panel.open {
+            transform: translateX(0);
+        }
+        
+        .file-preview {
+            max-width: 200px;
+            max-height: 200px;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+        
+        .neon-text {
+            text-shadow: 0 0 5px rgba(79, 70, 229, 0.5);
+        }
+        
+        .recording {
+            animation: pulse-record 1.5s infinite;
+        }
+        
+        @keyframes pulse-record {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        
+        .knowledge-item {
+            transition: all 0.2s ease;
+        }
+        
+        .knowledge-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tooltip {
+            position: relative;
+        }
+        
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 120px;
+            background-color: var(--dark);
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="flex flex-col">
+    <!-- Header -->
+    <header class="gradient-bg text-white p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="relative">
+                    <i class="fas fa-brain text-2xl neon-text"></i>
+                    <span class="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></span>
+                </div>
+                <h1 class="text-xl font-bold title-font">Neuro<span class="text-yellow-300">AI</span></h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="knowledge-btn" class="p-2 rounded-full hover:bg-indigo-700 transition tooltip">
+                    <i class="fas fa-lightbulb"></i>
+                    <span class="tooltip-text">Мои знания</span>
+                </button>
+                <button id="settings-btn" class="p-2 rounded-full hover:bg-indigo-700 transition tooltip">
+                    <i class="fas fa-cog"></i>
+                    <span class="tooltip-text">Настройки</span>
+                </button>
+                <button id="help-btn" class="p-2 rounded-full hover:bg-indigo-700 transition tooltip">
+                    <i class="fas fa-question-circle"></i>
+                    <span class="tooltip-text">Помощь</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Settings Panel -->
+    <div id="settings-panel" class="settings-panel fixed top-0 right-0 w-80 h-full bg-white shadow-xl z-50 p-4 overflow-y-auto">
+        <div class="flex justify-between items-center mb-6 border-b pb-4">
+            <h2 class="text-xl font-bold title-font text-indigo-600">Настройки NeuroAI</h2>
+            <button id="close-settings" class="p-2 rounded-full hover:bg-gray-200 transition">
+                <i class="fas fa-times text-gray-500"></i>
+            </button>
+        </div>
+        
+        <div class="space-y-6">
+            <div>
+                <h3 class="font-medium mb-2 text-gray-700"><i class="fas fa-robot mr-2 text-indigo-500"></i>Голос нейросети</h3>
+                <select id="voice-select" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="default">По умолчанию</option>
+                    <option value="female1">Женский 1</option>
+                    <option value="female2">Женский 2</option>
+                    <option value="male1">Мужской 1</option>
+                    <option value="male2">Мужской 2</option>
+                </select>
+            </div>
+            
+            <div>
+                <h3 class="font-medium mb-2 text-gray-700"><i class="fas fa-globe mr-2 text-indigo-500"></i>Язык интерфейса</h3>
+                <select id="ui-language" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="ru">Русский</option>
+                    <option value="en">English</option>
+                    <option value="de">Deutsch</option>
+                    <option value="fr">Français</option>
+                </select>
+            </div>
+            
+            <div>
+                <h3 class="font-medium mb-2 text-gray-700"><i class="fas fa-comment-dots mr-2 text-indigo-500"></i>Язык ответов</h3>
+                <select id="response-language" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="ru">Русский</option>
+                    <option value="en">English</option>
+                    <option value="de">Deutsch</option>
+                    <option value="fr">Français</option>
+                </select>
+            </div>
+            
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <span class="font-medium text-gray-700"><i class="fas fa-volume-up mr-2 text-indigo-500"></i>Голосовые ответы</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input id="voice-toggle" type="checkbox" class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+            </div>
+            
+            <div class="pt-4 border-t">
+                <h3 class="font-medium mb-2 text-gray-700"><i class="fas fa-database mr-2 text-indigo-500"></i>Управление данными</h3>
+                <div class="space-y-2">
+                    <button id="export-btn" class="w-full py-2 px-4 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition flex items-center justify-center space-x-2">
+                        <i class="fas fa-file-export"></i>
+                        <span>Экспорт данных</span>
+                    </button>
+                    <button id="import-btn" class="w-full py-2 px-4 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition flex items-center justify-center space-x-2">
+                        <i class="fas fa-file-import"></i>
+                        <span>Импорт данных</span>
+                    </button>
+                    <input type="file" id="import-file" class="hidden" accept=".json">
+                    <button id="clear-data-btn" class="w-full py-2 px-4 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition flex items-center justify-center space-x-2">
+                        <i class="fas fa-trash-alt"></i>
+                        <span>Очистить данные</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="pt-4 border-t">
+                <h3 class="font-medium mb-2 text-gray-700"><i class="fas fa-link mr-2 text-indigo-500"></i>Ссылки</h3>
+                <a href="https://t.me/RusSigmaLOL" target="_blank" class="w-full block py-2 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center space-x-2">
+                    <i class="fab fa-telegram"></i>
+                    <span>Мой Telegram</span>
+                </a>
+                <a href="https://github.com/your_github" target="_blank" class="w-full block py-2 px-4 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition flex items-center justify-center space-x-2 mt-2">
+                    <i class="fab fa-github"></i>
+                    <span>GitHub проекта</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Knowledge Panel -->
+    <div id="knowledge-panel" class="settings-panel fixed top-0 right-0 w-80 h-full bg-white shadow-xl z-50 p-4 overflow-y-auto">
+        <div class="flex justify-between items-center mb-6 border-b pb-4">
+            <h2 class="text-xl font-bold title-font text-indigo-600"><i class="fas fa-lightbulb mr-2 text-yellow-400"></i>Знания NeuroAI</h2>
+            <button id="close-knowledge" class="p-2 rounded-full hover:bg-gray-200 transition">
+                <i class="fas fa-times text-gray-500"></i>
+            </button>
+        </div>
+        
+        <div id="knowledge-list" class="space-y-3">
+            <!-- Knowledge items will be added here -->
+        </div>
+        
+        <div id="empty-knowledge" class="text-center py-10">
+            <i class="fas fa-book-open text-4xl text-gray-300 mb-3"></i>
+            <p class="text-gray-500">Нейросеть пока ничего не знает. Начните обучать её с помощью команды /Запомни</p>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h2 class="text-xl font-bold title-font text-indigo-600"><i class="fas fa-question-circle mr-2"></i>Инструкция по NeuroAI</h2>
+                <button id="close-help" class="p-2 rounded-full hover:bg-gray-200 transition">
+                    <i class="fas fa-times text-gray-500"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded">
+                    <h3 class="font-bold text-indigo-700 mb-2"><i class="fas fa-info-circle mr-2"></i>Основная концепция</h3>
+                    <p class="text-indigo-600">NeuroAI начинает с нулевыми знаниями и обучается исключительно на ваших данных. Вы можете обучать её текстом, изображениями и файлами.</p>
+                </div>
+                
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-2"><i class="fas fa-terminal mr-2 text-indigo-500"></i>Основные команды</h3>
+                    <ul class="list-disc pl-5 mt-2 space-y-2 text-gray-600">
+                        <li><span class="font-medium bg-indigo-100 px-2 py-1 rounded">/Запомни [информация]</span> - нейросеть запомнит информацию</li>
+                        <li><span class="font-medium bg-indigo-100 px-2 py-1 rounded">/Диалог</span> - обычный разговор без запоминания</li>
+                        <li><span class="font-medium bg-indigo-100 px-2 py-1 rounded">/Покажи знания</span> - показать все запомненные данные</li>
+                        <li><span class="font-medium bg-indigo-100 px-2 py-1 rounded">/Очисти память</span> - удалить все запомненные данные</li>
+                        <li><span class="font-medium bg-indigo-100 px-2 py-1 rounded">/Помощь</span> - показать эту инструкцию</li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-2"><i class="fas fa-graduation-cap mr-2 text-indigo-500"></i>Как обучать нейросеть</h3>
+                    <div class="bg-white border rounded-lg p-4">
+                        <div class="flex items-start space-x-3 mb-3">
+                            <div class="bg-indigo-100 text-indigo-800 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-1">1</div>
+                            <p class="text-gray-600">Отправьте команду <span class="font-medium">/Запомни</span> с информацией, например: <span class="bg-gray-100 px-2 py-1 rounded">/Запомни 2+2=4</span></p>
+                        </div>
+                        <div class="flex items-start space-x-3 mb-3">
+                            <div class="bg-indigo-100 text-indigo-800 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-1">2</div>
+                            <p class="text-gray-600">Отправьте изображение с информацией, например фото математического правила с подписью <span class="font-medium">/Запомни</span></p>
+                        </div>
+                        <div class="flex items-start space-x-3">
+                            <div class="bg-indigo-100 text-indigo-800 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-1">3</div>
+                            <p class="text-gray-600">Задайте вопрос на основе обученной информации, например: <span class="bg-gray-100 px-2 py-1 rounded">Сколько будет 2+2?</span></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                    <h3 class="font-medium text-yellow-700 mb-1"><i class="fas fa-exclamation-triangle mr-2"></i>Важно!</h3>
+                    <p class="text-yellow-600">NeuroAI не имеет предварительных знаний. Все её ответы основаны только на том, чему вы её научите. Точность ответов зависит от качества обучения.</p>
+                </div>
+            </div>
+            
+            <button id="start-chat-btn" class="w-full mt-6 py-3 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium shadow-md">
+                <i class="fas fa-comments mr-2"></i>Начать общение
+            </button>
+        </div>
+    </div>
+
+    <!-- Chat Container -->
+    <div id="chat-container" class="chat-container container mx-auto p-4 flex-1 overflow-y-auto hidden">
+        <!-- Messages will appear here -->
+    </div>
+
+    <!-- Initial State -->
+    <div id="initial-state" class="flex-1 flex flex-col items-center justify-center p-4 text-center">
+        <div class="max-w-md mx-auto">
+            <div class="bg-white p-8 rounded-xl shadow-xl mb-8 transform transition hover:scale-[1.02]">
+                <div class="w-24 h-24 mx-auto mb-6 bg-indigo-100 rounded-full flex items-center justify-center shadow-inner">
+                    <i class="fas fa-brain text-5xl text-indigo-600"></i>
+                </div>
+                <h2 class="text-3xl font-bold mb-3 title-font text-indigo-600">Neuro<span class="text-yellow-400">AI</span></h2>
+                <p class="text-gray-600 mb-6">Персональная нейросеть с нулевыми знаниями, которая обучается только от вас. Начните с чистого листа и создайте своего ИИ-помощника.</p>
+                <button id="get-started-btn" class="gradient-bg text-white py-3 px-8 rounded-full hover:opacity-90 transition font-medium shadow-lg flex items-center justify-center space-x-2 mx-auto pulse-animation">
+                    <span>Начать обучение</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white p-5 rounded-xl shadow hover:shadow-md transition transform hover:-translate-y-1">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600">
+                        <i class="fas fa-graduation-cap text-xl"></i>
+                    </div>
+                    <h3 class="font-medium title-font">Обучайте</h3>
+                    <p class="text-sm text-gray-500 mt-2">Добавляйте знания текстом, изображениями и файлами</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow hover:shadow-md transition transform hover:-translate-y-1">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                        <i class="fas fa-comments text-xl"></i>
+                    </div>
+                    <h3 class="font-medium title-font">Общайтесь</h3>
+                    <p class="text-sm text-gray-500 mt-2">Используйте разные режимы диалога</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow hover:shadow-md transition transform hover:-translate-y-1">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
+                        <i class="fas fa-file-upload text-xl"></i>
+                    </div>
+                    <h3 class="font-medium title-font">Анализируйте</h3>
+                    <p class="text-sm text-gray-500 mt-2">Загружайте файлы для обработки</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input Area -->
+    <div id="input-area" class="bg-white border-t p-4 shadow-lg hidden">
+        <div class="container mx-auto">
+            <!-- Mode Selector -->
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex space-x-2">
+                    <button id="learn-mode-btn" class="px-4 py-1.5 bg-indigo-600 text-white rounded-full text-sm flex items-center space-x-2 shadow">
+                        <i class="fas fa-save"></i>
+                        <span>Запомнить</span>
+                    </button>
+                    <button id="chat-mode-btn" class="px-4 py-1.5 bg-gray-200 text-gray-700 rounded-full text-sm flex items-center space-x-2 hover:bg-gray-300">
+                        <i class="fas fa-comment"></i>
+                        <span>Диалог</span>
+                    </button>
+                </div>
+                <div class="text-sm text-gray-500 flex items-center">
+                    <i class="fas fa-lightbulb mr-1 text-yellow-400"></i>
+                    <span id="knowledge-count">0</span> знаний
+                </div>
+            </div>
+            
+            <!-- Input Box -->
+            <div class="flex space-x-2">
+                <div class="flex-1 relative">
+                    <input id="message-input" type="text" placeholder="Напишите сообщение или команду /Запомни..." 
+                           class="w-full p-3.5 border rounded-xl pr-16 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm">
+                    <div class="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
+                        <button id="voice-input-btn" class="p-2 text-gray-500 hover:text-indigo-600 rounded-full transition">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                        <button id="emoji-btn" class="p-2 text-gray-500 hover:text-indigo-600 rounded-full transition">
+                            <i class="far fa-smile"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex space-x-2">
+                    <button id="file-upload-btn" class="p-3.5 bg-gray-100 hover:bg-gray-200 rounded-xl transition shadow-sm tooltip">
+                        <i class="fas fa-paperclip"></i>
+                        <span class="tooltip-text">Прикрепить файл</span>
+                    </button>
+                    <button id="send-btn" class="p-3.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition shadow-md">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- File Input (hidden) -->
+            <input type="file" id="file-input" class="hidden" accept="image/*,video/*,.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx">
+        </div>
+    </div>
+
+    <script>
+        // State management
+        const state = {
+            knowledge: [],
+            currentMode: 'learn', // 'learn' or 'chat'
+            isTyping: false,
+            voiceEnabled: false,
+            selectedVoice: 'default',
+            uiLanguage: 'ru',
+            responseLanguage: 'ru',
+            chatHistory: [],
+            currentFiles: null,
+            speechRecognition: null
+        };
+
+        // DOM elements
+        const elements = {
+            initialState: document.getElementById('initial-state'),
+            chatContainer: document.getElementById('chat-container'),
+            inputArea: document.getElementById('input-area'),
+            messageInput: document.getElementById('message-input'),
+            sendBtn: document.getElementById('send-btn'),
+            fileUploadBtn: document.getElementById('file-upload-btn'),
+            fileInput: document.getElementById('file-input'),
+            learnModeBtn: document.getElementById('learn-mode-btn'),
+            chatModeBtn: document.getElementById('chat-mode-btn'),
+            settingsBtn: document.getElementById('settings-btn'),
+            closeSettings: document.getElementById('close-settings'),
+            settingsPanel: document.getElementById('settings-panel'),
+            helpBtn: document.getElementById('help-btn'),
+            closeHelp: document.getElementById('close-help'),
+            helpModal: document.getElementById('help-modal'),
+            startChatBtn: document.getElementById('start-chat-btn'),
+            getStartedBtn: document.getElementById('get-started-btn'),
+            voiceToggle: document.getElementById('voice-toggle'),
+            voiceSelect: document.getElementById('voice-select'),
+            uiLanguage: document.getElementById('ui-language'),
+            responseLanguage: document.getElementById('response-language'),
+            voiceInputBtn: document.getElementById('voice-input-btn'),
+            exportBtn: document.getElementById('export-btn'),
+            importBtn: document.getElementById('import-btn'),
+            importFile: document.getElementById('import-file'),
+            clearDataBtn: document.getElementById('clear-data-btn'),
+            knowledgeCount: document.getElementById('knowledge-count'),
+            knowledgeBtn: document.getElementById('knowledge-btn'),
+            closeKnowledge: document.getElementById('close-knowledge'),
+            knowledgePanel: document.getElementById('knowledge-panel'),
+            knowledgeList: document.getElementById('knowledge-list'),
+            emptyKnowledge: document.getElementById('empty-knowledge')
+        };
+
+        // Initialize the app
+        function init() {
+            loadStateFromLocalStorage();
+            setupEventListeners();
+            updateUI();
+            
+            // Show help modal on first visit
+            if (!localStorage.getItem('firstVisit')) {
+                elements.helpModal.classList.remove('hidden');
+                localStorage.setItem('firstVisit', 'true');
+            }
+        }
+
+        // Load state from localStorage
+        function loadStateFromLocalStorage() {
+            const savedState = localStorage.getItem('neuroNetworkState');
+            if (savedState) {
+                try {
+                    const parsedState = JSON.parse(savedState);
+                    Object.assign(state, parsedState);
+                    
+                    // Update knowledge panel if it's loaded
+                    updateKnowledgePanel();
+                } catch (e) {
+                    console.error('Error loading state:', e);
+                }
+            }
+        }
+
+        // Save state to localStorage
+        function saveStateToLocalStorage() {
+            localStorage.setItem('neuroNetworkState', JSON.stringify(state));
+        }
+
+        // Set up event listeners
+        function setupEventListeners() {
+            // Navigation
+            elements.getStartedBtn.addEventListener('click', startChat);
+            elements.startChatBtn.addEventListener('click', startChat);
+            
+            // Message input
+            elements.messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            elements.sendBtn.addEventListener('click', sendMessage);
+            
+            // File upload
+            elements.fileUploadBtn.addEventListener('click', () => elements.fileInput.click());
+            elements.fileInput.addEventListener('change', handleFileUpload);
+            
+            // Mode switching
+            elements.learnModeBtn.addEventListener('click', () => switchMode('learn'));
+            elements.chatModeBtn.addEventListener('click', () => switchMode('chat'));
+            
+            // Settings
+            elements.settingsBtn.addEventListener('click', () => {
+                elements.settingsPanel.classList.add('open');
+                elements.knowledgePanel.classList.remove('open');
+            });
+            elements.closeSettings.addEventListener('click', () => elements.settingsPanel.classList.remove('open'));
+            
+            // Knowledge panel
+            elements.knowledgeBtn.addEventListener('click', () => {
+                elements.knowledgePanel.classList.add('open');
+                elements.settingsPanel.classList.remove('open');
+                updateKnowledgePanel();
+            });
+            elements.closeKnowledge.addEventListener('click', () => elements.knowledgePanel.classList.remove('open'));
+            
+            // Help
+            elements.helpBtn.addEventListener('click', () => elements.helpModal.classList.remove('hidden'));
+            elements.closeHelp.addEventListener('click', () => elements.helpModal.classList.add('hidden'));
+            
+            // Voice settings
+            elements.voiceToggle.addEventListener('change', (e) => {
+                state.voiceEnabled = e.target.checked;
+                saveStateToLocalStorage();
+            });
+            
+            elements.voiceSelect.addEventListener('change', (e) => {
+                state.selectedVoice = e.target.value;
+                saveStateToLocalStorage();
+            });
+            
+            // Language settings
+            elements.uiLanguage.addEventListener('change', (e) => {
+                state.uiLanguage = e.target.value;
+                saveStateToLocalStorage();
+                updateUI();
+            });
+            
+            elements.responseLanguage.addEventListener('change', (e) => {
+                state.responseLanguage = e.target.value;
+                saveStateToLocalStorage();
+            });
+            
+            // Voice input
+            elements.voiceInputBtn.addEventListener('click', toggleVoiceInput);
+            
+            // Data management
+            elements.exportBtn.addEventListener('click', exportData);
+            elements.importBtn.addEventListener('click', () => elements.importFile.click());
+            elements.importFile.addEventListener('change', importData);
+            elements.clearDataBtn.addEventListener('click', clearData);
+        }
+
+        // Start chat - hide initial state and show chat
+        function startChat() {
+            elements.initialState.classList.add('hidden');
+            elements.chatContainer.classList.remove('hidden');
+            elements.inputArea.classList.remove('hidden');
+            elements.helpModal.classList.add('hidden');
+            
+            // Add welcome message if it's the first message
+            if (state.chatHistory.length === 0) {
+                addBotMessage('Привет! Я NeuroAI - нейросеть, которая пока ничего не знает. Вы можете обучать меня, отправляя информацию с командой /Запомни, или просто общаться со мной в диалоговом режиме.\n\nНачните с команды /Помощь, чтобы увидеть инструкции.');
+            } else {
+                // Restore chat history
+                state.chatHistory.forEach(msg => {
+                    if (msg.sender === 'user') {
+                        addUserMessage(msg.content, msg.files);
+                    } else {
+                        addBotMessage(msg.content);
+                    }
+                });
+            }
+            
+            // Scroll to bottom
+            setTimeout(() => {
+                elements.chatContainer.scrollTop = elements.chatContainer.scrollHeight;
+            }, 100);
+        }
+
+        // Switch between learn and chat modes
+        function switchMode(mode) {
+            state.currentMode = mode;
+            saveStateToLocalStorage();
+            updateModeButtons();
+            
+            // Add mode notification
+            const modeMessage = mode === 'learn' ? 
+                '✅ <b>Режим обучения активирован</b>. Теперь я буду запоминать всю информацию, которую вы мне отправите. Используйте команду /Запомни [информация]' : 
+                '💬 <b>Диалоговый режим активирован</b>. Теперь я не буду запоминать информацию, а просто общаться с вами. Для обучения используйте команду /Запомни';
+            
+            addBotMessage(modeMessage);
+        }
+
+        // Update mode buttons appearance
+        function updateModeButtons() {
+            if (state.currentMode === 'learn') {
+                elements.learnModeBtn.classList.add('bg-indigo-600', 'text-white');
+                elements.learnModeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+                elements.chatModeBtn.classList.add('bg-gray-200', 'text-gray-700');
+                elements.chatModeBtn.classList.remove('bg-indigo-600', 'text-white');
+            } else {
+                elements.chatModeBtn.classList.add('bg-indigo-600', 'text-white');
+                elements.chatModeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+                elements.learnModeBtn.classList.add('bg-gray-200', 'text-gray-700');
+                elements.learnModeBtn.classList.remove('bg-indigo-600', 'text-white');
+            }
+        }
+
+        // Send message handler
+        function sendMessage() {
+            const message = elements.messageInput.value.trim();
+            if (!message && !state.currentFiles) return;
+            
+            // Check for commands
+            if (message.startsWith('/')) {
+                handleCommand(message);
+                elements.messageInput.value = '';
+                state.currentFiles = null;
+                removeFilePreviews();
+                return;
+            }
+            
+            // Add user message to chat
+            addUserMessage(message, state.currentFiles);
+            
+            // Add to chat history
+            state.chatHistory.push({
+                sender: 'user',
+                content: message,
+                files: state.currentFiles ? [...state.currentFiles] : null,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Clear input
+            elements.messageInput.value = '';
+            state.currentFiles = null;
+            removeFilePreviews();
+            
+            // Process message
+            processUserMessage(message);
+            
+            // Save state
+            saveStateToLocalStorage();
+        }
+
+        // Remove file previews
+        function removeFilePreviews() {
+            const previews = document.querySelectorAll('.file-preview-container');
+            previews.forEach(preview => preview.remove());
+        }
+
+        // Handle file upload
+        function handleFileUpload(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            
+            state.currentFiles = files;
+            
+            // Create preview
+            const previewContainer = document.createElement('div');
+            previewContainer.className = 'file-preview-container flex space-x-2 mt-2';
+            
+            files.forEach(file => {
+                const preview = document.createElement('div');
+                preview.className = 'relative';
+                
+                if (file.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    img.className = 'file-preview rounded-lg border max-h-24';
+                    preview.appendChild(img);
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs';
+                    removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                    removeBtn.onclick = () => {
+                        state.currentFiles = state.currentFiles.filter(f => f !== file);
+                        preview.remove();
+                        if (state.currentFiles.length === 0) {
+                            previewContainer.remove();
+                        }
+                    };
+                    preview.appendChild(removeBtn);
+                } else {
+                    const icon = document.createElement('div');
+                    icon.className = 'w-16 h-16 bg-gray-100 rounded-lg flex flex-col items-center justify-center p-2';
+                    
+                    const fileIcon = document.createElement('i');
+                    if (file.type.includes('pdf')) {
+                        fileIcon.className = 'fas fa-file-pdf text-red-500 text-2xl';
+                    } else if (file.type.includes('word') || file.type.includes('document')) {
+                        fileIcon.className = 'fas fa-file-word text-blue-500 text-2xl';
+                    } else if (file.type.includes('text')) {
+                        fileIcon.className = 'fas fa-file-alt text-gray-500 text-2xl';
+                    } else if (file.type.includes('video')) {
+                        fileIcon.className = 'fas fa-file-video text-purple-500 text-2xl';
+                    } else if (file.type.includes('excel') || file.type.includes('spreadsheet')) {
+                        fileIcon.className = 'fas fa-file-excel text-green-500 text-2xl';
+                    } else if (file.type.includes('powerpoint') || file.type.includes('presentation')) {
+                        fileIcon.className = 'fas fa-file-powerpoint text-orange-500 text-2xl';
+                    } else {
+                        fileIcon.className = 'fas fa-file text-gray-500 text-2xl';
+                    }
+                    
+                    icon.appendChild(fileIcon);
+                    
+                    const fileName = document.createElement('div');
+                    fileName.className = 'text-xs mt-1 truncate w-full text-center';
+                    fileName.textContent = file.name.length > 12 ? file.name.substring(0, 9) + '...' : file.name;
+                    icon.appendChild(fileName);
+                    
+                    preview.appendChild(icon);
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs';
+                    removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                    removeBtn.onclick = () => {
+                        state.currentFiles = state.currentFiles.filter(f => f !== file);
+                        preview.remove();
+                        if (state.currentFiles.length === 0) {
+                            previewContainer.remove();
+                        }
+                    };
+                    preview.appendChild(removeBtn);
+                }
+                
+                previewContainer.appendChild(preview);
+            });
+            
+            // Insert preview after input
+            const inputContainer = elements.messageInput.parentNode;
+            const existingPreview = inputContainer.querySelector('.file-preview-container');
+            if (existingPreview) {
+                existingPreview.replaceWith(previewContainer);
+            } else {
+                inputContainer.appendChild(previewContainer);
+            }
+        }
+
+        // Handle commands
+        function handleCommand(command) {
+            const parts = command.split(' ');
+            const cmd = parts[0].toLowerCase();
+            const args = parts.slice(1).join(' ');
+            
+            switch (cmd) {
+                case '/запомни':
+                    if (args || state.currentFiles) {
+                        if (state.currentFiles) {
+                            // Handle file upload with remember command
+                            addKnowledge(`[Файл] ${state.currentFiles.map(f => f.name).join(', ')}: ${args || 'Смотрите прикрепленный файл'}`);
+                            addBotMessage(`Я запомнила информацию из прикрепленного файла${args ? ' с вашим пояснением' : ''}. Теперь я буду использовать эти данные в своих ответах.`);
+                        } else {
+                            addKnowledge(args);
+                            addBotMessage(`Я запомнила: "${args}". Теперь я буду использовать эту информацию в своих ответах.`);
+                        }
+                    } else {
+                        addBotMessage('Пожалуйста, укажите информацию для запоминания после команды /Запомни или прикрепите файл с информацией.');
+                    }
+                    break;
+                    
+                case '/диалог':
+                    switchMode('chat');
+                    break;
+                    
+                case '/обучение':
+                    switchMode('learn');
+                    break;
+                    
+                case '/покажи':
+                    if (args.includes('знания')) {
+                        showKnowledge();
+                    }
+                    break;
+                    
+                case '/очисти':
+                    if (args.includes('память')) {
+                        clearKnowledge();
+                    }
+                    break;
+                    
+                case '/помощь':
+                    elements.helpModal.classList.remove('hidden');
+                    break;
+                    
+                default:
+                    addBotMessage('Неизвестная команда. Используйте /Запомни, /Диалог, /Покажи знания, /Очисти память или /Помощь.');
+            }
+        }
+
+        // Process user message
+        function processUserMessage(message) {
+            // Show typing indicator
+            showTypingIndicator();
+            
+            // Simulate processing delay
+            setTimeout(() => {
+                hideTypingIndicator();
+                
+                if (state.currentMode === 'learn') {
+                    // In learn mode, try to find matching knowledge
+                    const response = generateResponseFromKnowledge(message);
+                    
+                    if (response) {
+                        addBotMessage(response);
+                    } else {
+                        addBotMessage('Я пока не знаю, как ответить на это. Пожалуйста, научите меня, используя команду /Запомни [информация].');
+                    }
+                } else {
+                    // In chat mode, generate more conversational responses
+                    const responses = [
+                        'Это интересно! Можете рассказать мне больше об этом?',
+                        'Я вас понимаю. Что ещё вас интересует в этой теме?',
+                        'Хороший вопрос. Давайте обсудим это подробнее. Что вы сами думаете по этому поводу?',
+                        'Спасибо, что поделились этим со мной. Как вы пришли к такому выводу?',
+                        'Продолжайте, мне действительно интересно ваше мнение. Что ещё вы хотели бы обсудить?',
+                        'Я внимательно вас слушаю. Может быть, у вас есть дополнительные мысли по этому поводу?'
+                    ];
+                    
+                    // If we have some knowledge, try to use it even in chat mode
+                    const knowledgeResponse = generateResponseFromKnowledge(message);
+                    if (knowledgeResponse) {
+                        addBotMessage(`${knowledgeResponse} Хотите обсудить это подробнее?`);
+                    } else {
+                        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                        addBotMessage(randomResponse);
+                    }
+                }
+            }, 1000 + Math.random() * 2000);
+        }
+
+        // Add knowledge to memory
+        function addKnowledge(info) {
+            // Simple implementation - just store the string
+            // In a real app, you'd parse and structure the knowledge
+            const newKnowledge = {
+                id: Date.now(),
+                content: info,
+                timestamp: new Date().toISOString(),
+                files: state.currentFiles ? state.currentFiles.map(f => f.name) : null
+            };
+            
+            state.knowledge.push(newKnowledge);
+            
+            updateKnowledgeCount();
+            updateKnowledgePanel();
+            saveStateToLocalStorage();
+        }
+
+        // Generate response from knowledge
+        function generateResponseFromKnowledge(message) {
+            // Simple implementation - check for keywords in knowledge
+            // In a real app, you'd use more sophisticated NLP
+            const lowerMessage = message.toLowerCase();
+            
+            // Check for math expressions
+            if (lowerMessage.includes('сколько будет') || lowerMessage.includes('сколько это') || 
+                lowerMessage.includes('результат') || lowerMessage.includes('равно')) {
+                
+                // Try to find math knowledge
+                const mathKnowledge = state.knowledge.filter(k => 
+                    k.content.includes('=') && 
+                    (k.content.includes('+') || k.content.includes('-') || k.content.includes('*') || k.content.includes('/'))
+                );
+                
+                if (mathKnowledge.length > 0) {
+                    // Try to extract numbers from message
+                    const numbers = message.match(/\d+/g);
+                    if (numbers && numbers.length >= 2) {
+                        const a = parseInt(numbers[0]);
+                        const b = parseInt(numbers[1]);
+                        
+                        // Find matching operation
+                        for (const item of mathKnowledge) {
+                            if (item.content.includes(`${a}+${b}`)) {
+                                return `На основании моих знаний: ${a}+${b}=${a+b}`;
+                            }
+                            if (item.content.includes(`${a}-${b}`)) {
+                                return `На основании моих знаний: ${a}-${b}=${a-b}`;
+                            }
+                            if (item.content.includes(`${a}*${b}`)) {
+                                return `На основании моих знаний: ${a}*${b}=${a*b}`;
+                            }
+                            if (item.content.includes(`${a}/${b}`)) {
+                                return `На основании моих знаний: ${a}/${b}=${a/b}`;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // General knowledge matching
+            for (const item of state.knowledge) {
+                const keywords = item.content.toLowerCase().split(' ').slice(0, 3);
+                if (keywords.some(kw => lowerMessage.includes(kw))) {
+                    return `На основании моих знаний: ${item.content}`;
+                }
+            }
+            
+            return null;
+        }
+
+        // Show all knowledge
+        function showKnowledge() {
+            if (state.knowledge.length === 0) {
+                addBotMessage('Я пока ничего не знаю. Научите меня чему-нибудь с помощью команды /Запомни.');
+                return;
+            }
+            
+            let knowledgeList = 'Вот что я знаю:\n\n';
+            state.knowledge.forEach((item, index) => {
+                knowledgeList += `${index + 1}. ${item.content}`;
+                if (item.files) {
+                    knowledgeList += ` (файлы: ${item.files.join(', ')})`;
+                }
+                knowledgeList += '\n';
+            });
+            
+            addBotMessage(knowledgeList);
+        }
+
+        // Update knowledge panel
+        function updateKnowledgePanel() {
+            elements.knowledgeList.innerHTML = '';
+            
+            if (state.knowledge.length === 0) {
+                elements.emptyKnowledge.classList.remove('hidden');
+                return;
+            }
+            
+            elements.emptyKnowledge.classList.add('hidden');
+            
+            state.knowledge.forEach((item, index) => {
+                const knowledgeItem = document.createElement('div');
+                knowledgeItem.className = 'knowledge-item bg-gray-50 p-3 rounded-lg border border-gray-200';
+                
+                const content = document.createElement('p');
+                content.className = 'text-gray-700 mb-1';
+                content.textContent = item.content;
+                
+                const meta = document.createElement('div');
+                meta.className = 'flex justify-between items-center text-xs text-gray-500';
+                
+                const date = document.createElement('span');
+                date.textContent = new Date(item.timestamp).toLocaleString();
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'text-red-500 hover:text-red-700';
+                deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                deleteBtn.onclick = () => {
+                    state.knowledge = state.knowledge.filter(k => k.id !== item.id);
+                    updateKnowledgeCount();
+                    updateKnowledgePanel();
+                    saveStateToLocalStorage();
+                };
+                
+                meta.appendChild(date);
+                meta.appendChild(deleteBtn);
+                
+                knowledgeItem.appendChild(content);
+                
+                if (item.files) {
+                    const filesInfo = document.createElement('p');
+                    filesInfo.className = 'text-xs text-indigo-600 mb-1';
+                    filesInfo.innerHTML = `<i class="fas fa-paperclip mr-1"></i>Файлы: ${item.files.join(', ')}`;
+                    knowledgeItem.appendChild(filesInfo);
+                }
+                
+                knowledgeItem.appendChild(meta);
+                elements.knowledgeList.appendChild(knowledgeItem);
+            });
+        }
+
+        // Clear all knowledge
+        function clearKnowledge() {
+            if (confirm('Вы уверены, что хотите удалить все знания? Это действие нельзя отменить.')) {
+                state.knowledge = [];
+                updateKnowledgeCount();
+                updateKnowledgePanel();
+                saveStateToLocalStorage();
+                addBotMessage('Я очистила всю свою память. Теперь я снова ничего не знаю.');
+            }
+        }
+
+        // Update knowledge count display
+        function updateKnowledgeCount() {
+            elements.knowledgeCount.textContent = state.knowledge.length;
+        }
+
+        // Add user message to chat
+        function addUserMessage(message, files = null) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'flex justify-end mb-4 message-animation';
+            
+            const contentElement = document.createElement('div');
+            contentElement.className = 'bg-indigo-600 text-white rounded-xl py-3 px-4 max-w-xs md:max-w-md lg:max-w-lg shadow';
+            
+            if (message) {
+                const textElement = document.createElement('p');
+                textElement.className = 'whitespace-pre-wrap';
+                textElement.textContent = message;
+                contentElement.appendChild(textElement);
+            }
+            
+            if (files && files.length > 0) {
+                const filesContainer = document.createElement('div');
+                filesContainer.className = 'mt-2 grid grid-cols-2 gap-2';
+                
+                files.forEach(file => {
+                    const fileElement = document.createElement('div');
+                    fileElement.className = 'bg-indigo-700 rounded-lg p-2';
+                    
+                    if (file.type.startsWith('image/')) {
+                        const img = document.createElement('img');
+                        img.src = URL.createObjectURL(file);
+                        img.className = 'w-full h-auto rounded-lg max-h-32';
+                        fileElement.appendChild(img);
+                    } else {
+                        const icon = document.createElement('div');
+                        icon.className = 'flex items-center space-x-2';
+                        
+                        const fileIcon = document.createElement('i');
+                        if (file.type.includes('pdf')) {
+                            fileIcon.className = 'fas fa-file-pdf text-red-300';
+                        } else if (file.type.includes('word') || file.type.includes('document')) {
+                            fileIcon.className = 'fas fa-file-word text-blue-300';
+                        } else if (file.type.includes('text')) {
+                            fileIcon.className = 'fas fa-file-alt text-gray-300';
+                        } else if (file.type.includes('video')) {
+                            fileIcon.className = 'fas fa-file-video text-purple-300';
+                        } else if (file.type.includes('excel') || file.type.includes('spreadsheet')) {
+                            fileIcon.className = 'fas fa-file-excel text-green-300';
+                        } else if (file.type.includes('powerpoint') || file.type.includes('presentation')) {
+                            fileIcon.className = 'fas fa-file-powerpoint text-orange-300';
+                        } else {
+                            fileIcon.className = 'fas fa-file text-gray-300';
+                        }
+                        
+                        icon.appendChild(fileIcon);
+                        
+                        const fileName = document.createElement('span');
+                        fileName.className = 'text-white text-sm truncate';
+                        fileName.textContent = file.name;
+                        icon.appendChild(fileName);
+                        
+                        fileElement.appendChild(icon);
+                    }
+                    
+                    filesContainer.appendChild(fileElement);
+                });
+                
+                contentElement.appendChild(filesContainer);
+            }
+            
+            messageElement.appendChild(contentElement);
+            elements.chatContainer.appendChild(messageElement);
+            
+            // Scroll to bottom
+            elements.chatContainer.scrollTop = elements.chatContainer.scrollHeight;
+        }
+
+        // Add bot message to chat
+        function addBotMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'flex mb-4 message-animation';
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white mr-3 flex-shrink-0 shadow';
+            avatar.innerHTML = '<i class="fas fa-brain"></i>';
+            
+            const contentElement = document.createElement('div');
+            contentElement.className = 'bg-gray-100 text-gray-800 rounded-xl py-3 px-4 max-w-xs md:max-w-md lg:max-w-lg shadow';
+            contentElement.innerHTML = message; // Using innerHTML to allow basic formatting
+            
+            messageElement.appendChild(avatar);
+            messageElement.appendChild(contentElement);
+            elements.chatContainer.appendChild(messageElement);
+            
+            // Add to chat history
+            state.chatHistory.push({
+                sender: 'bot',
+                content: message,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Scroll to bottom
+            elements.chatContainer.scrollTop = elements.chatContainer.scrollHeight;
+            
+            // Speak the message if voice is enabled
+            if (state.voiceEnabled) {
+                speakMessage(message.replace(/<[^>]+>/g, '')); // Remove HTML tags for speech
+            }
+        }
+
+        // Show typing indicator
+        function showTypingIndicator() {
+            state.isTyping = true;
+            
+            const typingElement = document.createElement('div');
+            typingElement.className = 'flex mb-4';
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white mr-3 flex-shrink-0 shadow';
+            avatar.innerHTML = '<i class="fas fa-brain"></i>';
+            
+            const contentElement = document.createElement('div');
+            contentElement.className = 'bg-gray-100 rounded-xl py-3 px-4 w-20';
+            
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'typing-indicator';
+            typingIndicator.innerHTML = '<span></span><span></span><span></span>';
+            
+            contentElement.appendChild(typingIndicator);
+            typingElement.appendChild(avatar);
+            typingElement.appendChild(contentElement);
+            typingElement.id = 'typing-indicator';
+            
+            elements.chatContainer.appendChild(typingElement);
+            elements.chatContainer.scrollTop = elements.chatContainer.scrollHeight;
+        }
+
+        // Hide typing indicator
+        function hideTypingIndicator() {
+            state.isTyping = false;
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        // Speak message using Web Speech API
+        function speakMessage(message) {
+            if ('speechSynthesis' in window) {
+                // Cancel any ongoing speech
+                window.speechSynthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(message);
+                
+                // Set voice based on selection
+                const voices = window.speechSynthesis.getVoices();
+                let selectedVoice = null;
+                
+                // Try to find a voice that matches the selected language
+                const langCode = state.responseLanguage === 'ru' ? 'ru-RU' : 
+                                state.responseLanguage === 'en' ? 'en-US' :
+                                state.responseLanguage === 'de' ? 'de-DE' : 'fr-FR';
+                
+                // First try to find exact match
+                selectedVoice = voices.find(v => v.lang === langCode);
+                
+                // If not found, try to find any voice for the language
+                if (!selectedVoice) {
+                    selectedVoice = voices.find(v => v.lang.startsWith(state.responseLanguage));
+                }
+                
+                // If still not found, use default
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                }
+                
+                // Set rate and pitch based on voice type
+                switch (state.selectedVoice) {
+                    case 'female1':
+                        utterance.pitch = 1.2;
+                        utterance.rate = 1.1;
+                        break;
+                    case 'female2':
+                        utterance.pitch = 1.0;
+                        utterance.rate = 0.9;
+                        break;
+                    case 'male1':
+                        utterance.pitch = 0.8;
+                        utterance.rate = 1.0;
+                        break;
+                    case 'male2':
+                        utterance.pitch = 0.9;
+                        utterance.rate = 0.8;
+                        break;
+                    default:
+                        utterance.pitch = 1.0;
+                        utterance.rate = 1.0;
+                }
+                
+                // Handle errors
+                utterance.onerror = (event) => {
+                    console.error('Speech synthesis error:', event);
+                };
+                
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // Toggle voice input
+        function toggleVoiceInput() {
+            const voiceBtn = elements.voiceInputBtn;
+            
+            if (!('webkitSpeechRecognition' in window)) {
+                addBotMessage('Извините, голосовой ввод не поддерживается вашим браузером. Попробуйте использовать Chrome или Edge.');
+                return;
+            }
+            
+            if (voiceBtn.classList.contains('recording')) {
+                // Stop recording
+                voiceBtn.classList.remove('recording', 'text-red-600');
+                voiceBtn.classList.add('text-gray-500');
+                if (state.speechRecognition) {
+                    state.speechRecognition.stop();
+                }
+            } else {
+                // Start recording
+                voiceBtn.classList.add('recording', 'text-red-600');
+                voiceBtn.classList.remove('text-gray-500');
+                
+                const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+                const recognition = new SpeechRecognition();
+                state.speechRecognition = recognition;
+                
+                recognition.lang = state.uiLanguage === 'ru' ? 'ru-RU' : 
+                                  state.uiLanguage === 'en' ? 'en-US' :
+                                  state.uiLanguage === 'de' ? 'de-DE' : 'fr-FR';
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
+                
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    elements.messageInput.value = transcript;
+                };
+                
+                recognition.onerror = (event) => {
+                    let errorMessage = 'Произошла ошибка при распознавании голоса';
+                    if (event.error === 'no-speech') {
+                        errorMessage = 'Речь не обнаружена. Проверьте ваш микрофон.';
+                    } else if (event.error === 'audio-capture') {
+                        errorMessage = 'Не удалось захватить аудио. Проверьте настройки микрофона.';
+                    } else if (event.error === 'not-allowed') {
+                        errorMessage = 'Доступ к микрофону запрещен. Разрешите доступ в настройках браузера.';
+                    }
+                    
+                    addBotMessage(errorMessage);
+                };
+                
+                recognition.onend = () => {
+                    if (voiceBtn.classList.contains('recording')) {
+                        voiceBtn.classList.remove('recording', 'text-red-600');
+                        voiceBtn.classList.add('text-gray-500');
+                    }
+                };
+                
+                recognition.start();
+            }
+        }
+
+        // Export data
+        function exportData() {
+            const data = {
+                knowledge: state.knowledge,
+                chatHistory: state.chatHistory,
+                settings: {
+                    voiceEnabled: state.voiceEnabled,
+                    selectedVoice: state.selectedVoice,
+                    uiLanguage: state.uiLanguage,
+                    responseLanguage: state.responseLanguage,
+                    currentMode: state.currentMode
+                },
+                version: '1.0',
+                exportedAt: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `neuroai-data-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            addBotMessage('✅ Все данные успешно экспортированы. Вы можете импортировать их позже через меню настроек.');
+        }
+
+        // Import data
+        function importData(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    
+                    // Validate data structure
+                    if (!data.knowledge || !data.chatHistory || !data.settings) {
+                        throw new Error('Invalid data format');
+                    }
+                    
+                    // Apply imported data
+                    state.knowledge = data.knowledge || [];
+                    state.chatHistory = data.chatHistory || [];
+                    
+                    // Update settings if they exist
+                    if (data.settings) {
+                        state.voiceEnabled = data.settings.voiceEnabled || false;
+                        state.selectedVoice = data.settings.selectedVoice || 'default';
+                        state.uiLanguage = data.settings.uiLanguage || 'ru';
+                        state.responseLanguage = data.settings.responseLanguage || 'ru';
+                        state.currentMode = data.settings.currentMode || 'learn';
+                        
+                        // Update UI elements
+                        elements.voiceToggle.checked = state.voiceEnabled;
+                        elements.voiceSelect.value = state.selectedVoice;
+                        elements.uiLanguage.value = state.uiLanguage;
+                        elements.responseLanguage.value = state.responseLanguage;
+                    }
+                    
+                    updateKnowledgeCount();
+                    updateKnowledgePanel();
+                    updateModeButtons();
+                    saveStateToLocalStorage();
+                    
+                    // Reload chat if it's active
+                    if (!elements.chatContainer.classList.contains('hidden')) {
+                        // Clear current chat
+                        elements.chatContainer.innerHTML = '';
+                        
+                        // Reload chat history
+                        state.chatHistory.forEach(msg => {
+                            if (msg.sender === 'user') {
+                                addUserMessage(msg.content, msg.files);
+                            } else {
+                                addBotMessage(msg.content);
+                            }
+                        });
+                    }
+                    
+                    addBotMessage('✅ Все данные успешно импортированы. Теперь я помню всё, что было в сохранении.');
+                } catch (error) {
+                    console.error('Error importing data:', error);
+                    addBotMessage('❌ Произошла ошибка при импорте данных. Убедитесь, что файл не повреждён и имеет правильный формат.');
+                }
+            };
+            reader.onerror = () => {
+                addBotMessage('❌ Ошибка при чтении файла. Попробуйте выбрать другой файл.');
+            };
+            reader.readAsText(file);
+            
+            // Reset file input
+            e.target.value = '';
+        }
+
+        // Clear all data
+        function clearData() {
+            if (confirm('Вы уверены, что хотите удалить ВСЕ данные? Это действие нельзя отменить. Будут удалены:\n\n- Вся история чата\n- Все обученные знания\n- Все настройки')) {
+                state.knowledge = [];
+                state.chatHistory = [];
+                state.voiceEnabled = false;
+                state.selectedVoice = 'default';
+                state.uiLanguage = 'ru';
+                state.responseLanguage = 'ru';
+                state.currentMode = 'learn';
+                
+                updateKnowledgeCount();
+                updateKnowledgePanel();
+                updateUI();
+                saveStateToLocalStorage();
+                
+                // Clear chat display if active
+                if (!elements.chatContainer.classList.contains('hidden')) {
+                    elements.chatContainer.innerHTML = '';
+                    addBotMessage('🔵 Я была полностью сброшена к начальному состоянию. Теперь я снова ничего не знаю и готова к обучению.');
+                }
+            }
+        }
+
+        // Update UI based on current state
+        function updateUI() {
+            // Update mode buttons
+            updateModeButtons();
+            
+            // Update knowledge count
+            updateKnowledgeCount();
+            
+            // Update voice toggle
+            elements.voiceToggle.checked = state.voiceEnabled;
+            
+            // Update select elements
+            elements.voiceSelect.value = state.selectedVoice;
+            elements.uiLanguage.value = state.uiLanguage;
+            elements.responseLanguage.value = state.responseLanguage;
+            
+            // Update placeholder based on mode
+            elements.messageInput.placeholder = state.currentMode === 'learn' ? 
+                'Напишите сообщение или команду /Запомни...' : 
+                'Напишите сообщение...';
+        }
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // Load voices when they become available
+        window.speechSynthesis.onvoiceschanged = function() {
+            // Update voice options if needed
+        };
+    </script>
+</body>
+</html>
